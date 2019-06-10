@@ -12,13 +12,14 @@ def compute_block_size_shapes(axis_size, block_size):
     """
     assert axis_size >= block_size
 
-    if axis_size % block_size  == 0:
+    if axis_size % block_size == 0:
         return block_size
     else:
         num_blocks = ceil(axis_size / block_size)
         block_size_or_shapes = [block_size] * (num_blocks - 1)
         block_size_or_shapes.append(axis_size - (num_blocks - 1) * block_size)
         return block_size_or_shapes
+
 
 def split(x):
     "Split along channel dimension"
@@ -38,7 +39,7 @@ def merge(x1, x2):
 class injective_pad(object):
     def __init__(self, pad_size):
         self.pad_size = pad_size
-        self.pad = ZeroPadding2D((0, pad_size), (0, 0))
+        self.pad = ZeroPadding2D(padding=((0, pad_size), (0, 0)))
 
     def forward(self, x):
         x = Permute(1, 3, 2, 4)(x)
@@ -66,7 +67,9 @@ class psi(object):
             output, (batch_size, d_height, d_width, self.block_size_sq, s_depth)
         )
 
-        spl = tf.split(t_1, compute_block_size_shapes(t_1.shape[3], self.block_size), axis=3)
+        spl = tf.split(
+            t_1, compute_block_size_shapes(t_1.shape[3], self.block_size), axis=3
+        )
         stack = [
             tf.reshape(t_t, (batch_size, d_height, s_width, s_depth)) for t_t in spl
         ]
@@ -85,9 +88,9 @@ class psi(object):
         d_depth = s_depth * self.block_size_sq
         d_height = int(s_height / self.block_size)
 
-        if t_1.shape[2] % self.block_size == 0:
-
-        t_1 = tf.split(output, compute_block_size_shapes(t_1.shape[2], self.block_size), axis=2)
+        t_1 = tf.split(
+            output, compute_block_size_shapes(t_1.shape[2], self.block_size), axis=2
+        )
         stack = [tf.reshape(t_t, (batch_size, d_height, d_depth)) for t_t in t_1]
         output = tf.stack(stack, axis=1)
         output = Permute((1, 3, 2, 4))(output)

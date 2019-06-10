@@ -12,6 +12,8 @@ from tensorflow.keras.layers import (
     Dropout,
 )
 
+from utils import psi, injective_pad
+
 
 class iRevNetBlock(tf.keras.layers.Layer):
     "i-RevNet block: block of reversible layers"
@@ -149,11 +151,11 @@ class iRevNet(tf.keras.Model):
 
         self.init_psi = psi(self.init_ds)
         self.stack = self.irevnet_stack(
-            irevnet_block,
+            iRevNetBlock,
             nChannels,
             nBlocks,
             nStrides,
-            dropout_rate=droput_rate,
+            dropout_rate=dropout_rate,
             affineBN=affineBN,
             in_ch=self.in_ch,
             mult=mult,
