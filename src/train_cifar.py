@@ -34,6 +34,29 @@ def make_parser():
 
     return parser
 
+def train(model, train_data, datagen, epochs=50, batch_size=32):
+    model, save_name = model
+    x_train, y_train = train_data
+
+    optimizer = tf.keras.optimizers.SGD(lr=1e-3)
+    loss_fn = tf.keras.losses.CategoricalCrossentropy()
+
+    for e in range(epochs):
+        print(f"Epoch {e}")
+        batches = 0
+        for x_batch, y_batch in datagen.flow(x_train, y_train, batch_size=batch_size):
+            with tf.GradientTape() as tape:
+                logits = model(x_batch)
+                loss_value = loss_fn(y_batch, logits)
+            grads = tape.gradient(loss_value, model.trainable_weights)
+            optimizer.apply_gradients(zip(grads, model.trainable_weights))
+
+            print(f"Loss = {float(loss_value)}")
+
+            batches += 1
+            if batches > len(x_train) // batch_size:
+                break
+
 
 def main():
     parser = make_parser()
@@ -65,8 +88,6 @@ def main():
         data_format="channels_first",
     )
 
-    datagen.fit(x_train)
-
     def get_model(args):
         model = iRevNet(
             nBlocks=args.nBlocks,
@@ -83,7 +104,8 @@ def main():
         return model, fname
 
     model, fname = get_model(args)
-    exit()
+
+    train((model, fname), (x_train, y_train), datagen, epochs=args.epochs, batch_size=args.batch)
 
 
 if __name__ == "__main__":

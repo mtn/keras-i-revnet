@@ -12,7 +12,7 @@ from tensorflow.keras.layers import (
     Dropout,
 )
 
-from utils import psi, injective_pad
+from utils import psi, injective_pad, merge, split
 
 
 class iRevNetBlock(tf.keras.layers.Layer):
@@ -28,6 +28,8 @@ class iRevNetBlock(tf.keras.layers.Layer):
         affineBN=True,
         mult=4,
     ):
+        super(iRevNetBlock, self).__init__()
+
         self.pad = 2 * out_ch - in_ch
         self.stride = stride
         self.inj_pad = injective_pad(self.pad)
@@ -43,20 +45,22 @@ class iRevNetBlock(tf.keras.layers.Layer):
             layers.append(ReLU())
         layers.append(
             Conv2D(
-                int(out_ch // mult), 3, strides=stride, padding="same", use_bias=False
+                int(out_ch // mult), 3, strides=stride, padding="same", use_bias=False, data_format="channels_first"
             )
         )
+        # print("conv1 out channels", int(out_ch // mult))
+        # exit()
         layers.append(BatchNormalization(axis=1, center=affineBN, scale=affineBN))
         layers.append(ReLU())
         layers.append(
             Conv2D(
-                int(out_ch // mult), 3, strides=stride, padding="same", use_bias=False
+                int(out_ch // mult), 3, strides=stride, padding="same", use_bias=False, data_format="channels_first"
             )
         )
         layers.append(Dropout(dropout_rate))
         layers.append(BatchNormalization(axis=1, center=affineBN, scale=affineBN))
         layers.append(ReLU())
-        layers.append(Conv2D(out_ch, 3, strides=stride, padding="same", use_bias=False))
+        layers.append(Conv2D(out_ch, 3, strides=stride, padding="same", use_bias=False, data_format="channels_first"))
 
         self.bottleneck_block = layers
 
@@ -70,10 +74,10 @@ class iRevNetBlock(tf.keras.layers.Layer):
             x = self.inj_pad.forward(x)
             x1, x2 = split(x)
             x = (x1, x2)
+
         x1 = x[0]
         x2 = x[1]
         Fx2 = x2
-
         for block in self.bottleneck_block:
             Fx2 = block(Fx2)
 
@@ -126,14 +130,14 @@ class iRevNet(tf.keras.Model):
         nClasses,
         nChannels=None,
         init_ds=2,
-        dropout_rate=0.0,
+        dropout_rate=0.,
         affineBN=True,
         in_shape=None,
         mult=4,
     ):
         "TODO document init params"
-
         super(iRevNet, self).__init__()
+
         self.ds = in_shape[2] // 2 ** (nStrides.count(2) + init_ds // 2)
         self.init_ds = init_ds
         self.in_ch = in_shape[0] * 2 ** self.init_ds
@@ -165,7 +169,7 @@ class iRevNet(tf.keras.Model):
 
     def irevnet_stack(
         self,
-        block_layer,
+        block_constructor,
         nChannels,
         nBlocks,
         nStrides,
@@ -186,7 +190,7 @@ class iRevNet(tf.keras.Model):
 
         for i, (channel, stride) in enumerate(zip(channels, strides)):
             blocks.append(
-                block_layer(
+                block_constructor(
                     in_ch,
                     channel,
                     stride,

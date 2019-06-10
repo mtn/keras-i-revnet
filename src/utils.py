@@ -24,7 +24,7 @@ def compute_block_size_shapes(axis_size, block_size):
 def split(x):
     "Split along channel dimension"
 
-    n = int(x.size()[1] / 2)
+    n = int(x.get_shape().as_list()[1] / 2)
     x1 = x[:, :n, :, :]
     x2 = x[:, n:, :, :]
     return x1, x2
@@ -39,15 +39,15 @@ def merge(x1, x2):
 class injective_pad(object):
     def __init__(self, pad_size):
         self.pad_size = pad_size
-        self.pad = ZeroPadding2D(padding=((0, pad_size), (0, 0)))
+        self.pad = ZeroPadding2D(padding=((0, 0), (pad_size, 0)))
 
     def forward(self, x):
-        x = Permute(1, 3, 2, 4)(x)
+        x = Permute((2, 1, 3))(x)
         x = self.pad(x)
-        return Permute(1, 3, 2, 4)
+        return Permute((2, 1, 3))(x)
 
     def inverse(self, x):
-        return x[:, : x.size(1) - self.pad_size, :, :]
+        return x[:, : x.get_shape().as_list()[1] - self.pad_size, :, :]
 
 
 class psi(object):
@@ -76,14 +76,14 @@ class psi(object):
 
         # TODO transpose permutation?
         output = tf.reshape(
-            Permuate((1, 3, 2, 4, 5))(tf.transpose(tf.stack(stack, axis=0))),
+            Permute((1, 3, 2, 4, 5))(tf.transpose(tf.stack(stack, axis=0))),
             (batch_size, s_height, s_width, s_depth),
         )
 
         return Permute((1, 4, 2, 3))(output)
 
     def forward(self, inp):
-        output = Permuate((1, 3, 4, 2))(inp)
+        output = Permute((1, 3, 4, 2))(inp)
         (batch_size, s_height, s_width, s_depth) = output.size()
         d_depth = s_depth * self.block_size_sq
         d_height = int(s_height / self.block_size)
