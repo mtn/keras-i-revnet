@@ -34,6 +34,7 @@ def make_parser():
 
     return parser
 
+
 def train(model, train_data, datagen, epochs=50, batch_size=32):
     model, save_name = model
     x_train, y_train = train_data
@@ -81,6 +82,7 @@ def main():
 
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # Some pre-processing differences from the original
+    # TODO fit it on the data to do featurewise centering, and normalization
     datagen = ImageDataGenerator(
         horizontal_flip=True,
         featurewise_center=True,
@@ -105,9 +107,20 @@ def main():
 
     model, fname = get_model(args)
 
-    train((model, fname), (x_train, y_train), datagen, epochs=args.epochs, batch_size=args.batch)
+    train(
+        (model, fname),
+        (x_train, y_train),
+        datagen,
+        epochs=args.epochs,
+        batch_size=args.batch,
+    )
 
 
 if __name__ == "__main__":
     tf.enable_eager_execution()
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    session = tf.Session(config=config)
+
     main()

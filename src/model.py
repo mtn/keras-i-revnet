@@ -45,22 +45,33 @@ class iRevNetBlock(tf.keras.layers.Layer):
             layers.append(ReLU())
         layers.append(
             Conv2D(
-                int(out_ch // mult), 3, strides=stride, padding="same", use_bias=False, data_format="channels_first"
+                int(out_ch // mult),
+                3,
+                strides=stride,
+                padding="same",
+                use_bias=False,
+                data_format="channels_first",
             )
         )
-        # print("conv1 out channels", int(out_ch // mult))
-        # exit()
         layers.append(BatchNormalization(axis=1, center=affineBN, scale=affineBN))
         layers.append(ReLU())
         layers.append(
             Conv2D(
-                int(out_ch // mult), 3, strides=stride, padding="same", use_bias=False, data_format="channels_first"
+                int(out_ch // mult),
+                3,
+                padding="same",
+                use_bias=False,
+                data_format="channels_first",
             )
         )
         layers.append(Dropout(dropout_rate))
         layers.append(BatchNormalization(axis=1, center=affineBN, scale=affineBN))
         layers.append(ReLU())
-        layers.append(Conv2D(out_ch, 3, strides=stride, padding="same", use_bias=False, data_format="channels_first"))
+        layers.append(
+            Conv2D(
+                out_ch, 3, padding="same", use_bias=False, data_format="channels_first"
+            )
+        )
 
         self.bottleneck_block = layers
 
@@ -69,6 +80,8 @@ class iRevNetBlock(tf.keras.layers.Layer):
         super(iRevNetBlock, self).build(input_shape)
 
     def call(self, x):
+        "Forward propagate through iRevNet block"
+
         if self.pad != 0 and self.stride == 1:
             x = merge(x[0], x[1])
             x = self.inj_pad.forward(x)
@@ -130,7 +143,7 @@ class iRevNet(tf.keras.Model):
         nClasses,
         nChannels=None,
         init_ds=2,
-        dropout_rate=0.,
+        dropout_rate=0.0,
         affineBN=True,
         in_shape=None,
         mult=4,
@@ -225,8 +238,8 @@ class iRevNet(tf.keras.Model):
         # This is the invertible, the operations which follow aren't
         stack_output = merge(out[0], out[1])
 
-        out = ReLU(self.bn1(stack_output))
-        out = AveragePooling2D(out, self.ds)
+        out = ReLU()(self.bn1(stack_output))
+        out = AveragePooling2D(self.ds)(out)
         out = tf.reshape(out, (out.shape[0], -1))
         out = self.linear(out)
 
@@ -251,6 +264,10 @@ class iRevNet(tf.keras.Model):
 
 
 if __name__ == "__main__":
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    session = tf.Session(config=config)
+
     model = iRevNet(
         nBlocks=[6, 16, 72, 6],
         nStrides=[2, 2, 2, 2],

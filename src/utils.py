@@ -8,12 +8,13 @@ from math import ceil
 def compute_block_size_shapes(axis_size, block_size):
     """
     Compute the split shapes, if block_size doesn't divide axis_size (tf.split
-    only accepts a block_size that evenly divides axis_size)
+    only accepts a block_size that evenly divides axis_size), or the number of
+    splits if it does.
     """
     assert axis_size >= block_size
 
     if axis_size % block_size == 0:
-        return block_size
+        return axis_size // block_size
     else:
         num_blocks = ceil(axis_size / block_size)
         block_size_or_shapes = [block_size] * (num_blocks - 1)
@@ -83,17 +84,17 @@ class psi(object):
         return Permute((1, 4, 2, 3))(output)
 
     def forward(self, inp):
-        output = Permute((1, 3, 4, 2))(inp)
-        (batch_size, s_height, s_width, s_depth) = output.size()
+        output = Permute((2, 3, 1))(inp)
+        batch_size, s_height, s_width, s_depth = output.get_shape().as_list()
         d_depth = s_depth * self.block_size_sq
         d_height = int(s_height / self.block_size)
 
         t_1 = tf.split(
-            output, compute_block_size_shapes(t_1.shape[2], self.block_size), axis=2
+            output, compute_block_size_shapes(output.shape[2], self.block_size), axis=2
         )
         stack = [tf.reshape(t_t, (batch_size, d_height, d_depth)) for t_t in t_1]
         output = tf.stack(stack, axis=1)
-        output = Permute((1, 3, 2, 4))(output)
-        output = Permute((1, 4, 2, 3))(output)
+        output = Permute((2, 1, 3))(output)
+        output = Permute((3, 1, 2))(output)
 
         return output
