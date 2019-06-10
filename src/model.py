@@ -256,5 +256,3 @@ if __name__ == "__main__":
         in_shape=[3, 224, 224],
         mult=4,
     )
-    y = model(Variable(torch.randn(1, 3, 224, 224)))
-    print(y.size())
