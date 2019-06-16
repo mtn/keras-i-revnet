@@ -35,28 +35,33 @@ def make_parser():
     return parser
 
 
-def train(model, train_data, datagen, epochs=50, batch_size=32):
+def train(model, train_data, datagen, epochs=50, batch_size=32, learning_rate=1e-3):
     model, save_name = model
     x_train, y_train = train_data
 
-    optimizer = tf.keras.optimizers.SGD(lr=1e-3)
-    loss_fn = tf.keras.losses.CategoricalCrossentropy()
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    loss_fn = tf.nn.sparse_softmax_cross_entropy_with_logits
+    accuracy_fn = tf.keras.metrics.sparse_categorical_accuracy
 
     for e in range(epochs):
         print(f"Epoch {e}")
         batches = 0
-        for x_batch, y_batch in datagen.flow(x_train, y_train, batch_size=batch_size):
+        for i, (x_batch, y_batch) in enumerate(datagen.flow(x_train, y_train, batch_size=batch_size)):
             with tf.GradientTape() as tape:
-                logits = model(x_batch)
-                loss_value = loss_fn(y_batch, logits)
+                logits, _ = model(x_batch)
+                loss_value = loss_fn(labels=tf.cast(tf.reshape(y_batch, (y_batch.shape[0],)), tf.int32), logits=logits)
+                accuracy = accuracy_fn(y_batch, logits)
             grads = tape.gradient(loss_value, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-            print(f"Loss = {float(loss_value)}")
+            if i % 10 == 1:
+                print(f"Loss = {sum(loss_value)}, Accuracy = {float(sum(accuracy)) / len(accuracy)}")
+            # print(f"Loss = {sum(loss_value)}")
 
             batches += 1
-            if batches > len(x_train) // batch_size:
+            if batches > x_train.shape[0] // batch_size:
                 break
+        model.save_weights(f"../saved_models/model_epoch_{e}.h5")
 
 
 def main():
@@ -113,6 +118,7 @@ def main():
         datagen,
         epochs=args.epochs,
         batch_size=args.batch,
+        learning_rate=args.lr,
     )
 
 
